@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: 
+Description: aws-study.yaml
+Resources:
+myEC2Instance:
+  Type: AWS::EC2::Instance
+  Properties:
+    KeyName: daijomiho
+    DisableApiTermination: true
+     ImageId: ami-0c1638aa346a43fe8
+    InstanceType: t2.micro
+    Monitoring: true
+    SecurityGroupIds: !Ref MySecurityGroup 
+    
