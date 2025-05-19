@@ -1,43 +1,42 @@
-AWSTemplateFormatVersion: 
+AWSTemplateFormatVersion: '2010-09-09'
 Description: aws-study.yaml
 
 Resources:
-myVPC:
-  Type: AWS::EC2::VPC
-  Properties:
-    CidrBlock: 10.0.0.0/10
-    EnableDnsSupport: true
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/10
+      EnableDnsSupport: true
 
-subnetName:
-  Type: AWS::EC2::Subnet
-  Properties:
-    AvailabilityZone: zone-id
-    VpcId: vpc-id
-    CidrBlock: 10.0.0.0/24
-    
-igwName:
-  Type: AWS::EC2::InternetGateway
-  Properties:
+  MySubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.0.0/24
 
-AttachGateway:
-  Type: AWS::EC2::VPCGatewayAttachment
-  Properties:
-    VpcId: !Ref MyVPC
-    InternetGatewayId: !Ref igwName
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
 
-routeTableName:
-  Type: AWS::EC2::RouteTable
-  Properties:
-    VpcId: !Ref MyVPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref MyInternetGateway
 
-routeName:
-  Type: AWS::EC2::Route
-  Properties:
-    RouteTableId: !Ref MyRouteTable
-    DestinationCidrBlock: 0.0.0.0/0
-    GatewayId: !Ref MyInternetGateway
+  MyRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
 
-SubnetRouteTableAssociation:
+  MyRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref MySubnet
@@ -53,14 +52,15 @@ SubnetRouteTableAssociation:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-    
-myEC2Instance:
-  Type: AWS::EC2::Instance
-  Properties:
-    KeyName: daijomiho
-    DisableApiTermination: true
-     ImageId: ami-0c1638aa346a43fe8
-    InstanceType: t2.micro
-    Monitoring: true
-    SecurityGroupIds: !Ref MySecurityGroup 
-    
+
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: daijomiho
+      DisableApiTermination: true
+      ImageId: ami-0c1638aa346a43fe8
+      InstanceType: t2.micro
+      Monitoring: true
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      SubnetId: !Ref MySubnet
