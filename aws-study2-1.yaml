@@ -14,6 +14,9 @@ Resources:
       CidrBlock: 10.0.0.0/16
       EnableDnsSupport: true
       EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-VPC
 
   MySubnet1:
     Type: AWS::EC2::Subnet
@@ -21,6 +24,9 @@ Resources:
       VpcId: !Ref MyVPC
       CidrBlock: 10.0.0.0/24
       AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-Subnet1
 
   MySubnet2:
     Type: AWS::EC2::Subnet
@@ -28,9 +34,16 @@ Resources:
       VpcId: !Ref MyVPC
       CidrBlock: 10.0.1.0/24
       AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-Subnet2
 
   MyInternetGateway:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-IGW
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -42,6 +55,9 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-RouteTable
 
   MyRoute:
     Type: AWS::EC2::Route
@@ -95,6 +111,9 @@ Resources:
           SubnetId: !Ref MySubnet1
           GroupSet:
             - !Ref MySecurityGroup
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-EC2
 
   MyDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -121,7 +140,10 @@ Resources:
       MultiAZ: false
       StorageType: gp2
       BackupRetentionPeriod: 0
-
+      Tags:
+        - Key: Name
+          Value: aws-study2-1.yaml-RDS
+        
   MyClassicELB:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
     Properties:
