@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: aws-study2-1.yaml
+Description: aws-study-cf
 
 Parameters:
   MyHomeIP:
@@ -16,7 +16,7 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-VPC
+          Value: aws-study-cf-VPC
 
   MySubnet1:
     Type: AWS::EC2::Subnet
@@ -26,7 +26,7 @@ Resources:
       AvailabilityZone: !Select [ 0, !GetAZs "" ]
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-Subnet1
+          Value: aws-study-cf-Subnet1
 
   MySubnet2:
     Type: AWS::EC2::Subnet
@@ -36,14 +36,14 @@ Resources:
       AvailabilityZone: !Select [ 1, !GetAZs "" ]
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-Subnet2
+          Value: aws-study-cf-Subnet2
 
   MyInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-IGW
+          Value: aws-study-cf-IGW
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -57,7 +57,7 @@ Resources:
       VpcId: !Ref MyVPC
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-RouteTable
+          Value: aws-study-cf-RouteTable
 
   MyRoute:
     Type: AWS::EC2::Route
@@ -95,7 +95,12 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          CidrIp: 10.0.0.0/16       
+          CidrIp: 10.0.0.0/16
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+     
 
   MyEC2Instance:
     Type: AWS::EC2::Instance
@@ -113,7 +118,7 @@ Resources:
             - !Ref MySecurityGroup
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-EC2
+          Value: aws-study-cf-EC2
 
   MyDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -142,7 +147,7 @@ Resources:
       BackupRetentionPeriod: 0
       Tags:
         - Key: Name
-          Value: aws-study2-1.yaml-RDS
+          Value: aws-study-cf-RDS
         
   MyClassicELB:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
