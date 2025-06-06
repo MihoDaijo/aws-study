@@ -11,6 +11,16 @@ Parameters:
     Default: aws-study-cf
     Description: リソースに付与する Name タグのプレフィックス
 
+  DBMasterUsername:
+    Type: String
+    Description: RDSのマスターユーザー名
+    NoEcho: true
+
+  DBMasterUserPassword:
+    Type: String
+    Description: RDSのマスターパスワード
+    NoEcho: true
+
 Resources:
   MyVPC:
     Type: AWS::EC2::VPC
@@ -118,6 +128,10 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${NamePrefix}-EC2-SG"
@@ -164,13 +178,14 @@ Resources:
   MyRDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: mydb
+      DBName: awsstudy
+      DBInstanceIdentifier: aws-study-rds2
       Engine: mysql
       EngineVersion: "8.0"
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
-      MasterUsername: admin
-      MasterUserPassword: admin12345
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterUserPassword
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref MyDBSubnetGroup
@@ -198,10 +213,10 @@ Resources:
         - Key: Name
           Value: !Sub "${NamePrefix}-ALB"
 
-  ALBTargetGroup:
+  ALBTargetGroup80:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "${NamePrefix}-TG"
+      Name: !Sub "${NamePrefix}-TG80"
       VpcId: !Ref MyVPC
       Port: 80
       Protocol: HTTP
@@ -211,7 +226,7 @@ Resources:
       HealthCheckPath: /
       HealthCheckIntervalSeconds: 30
 
-  ALBListener:
+  ALBListener80:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref ALB
@@ -219,7 +234,30 @@ Resources:
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref ALBTargetGroup
+          TargetGroupArn: !Ref ALBTargetGroup80
+
+  ALBTargetGroup8080:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${NamePrefix}-TG8080"
+      VpcId: !Ref MyVPC
+      Port: 8080
+      Protocol: HTTP
+      TargetType: instance
+      Targets:
+        - Id: !Ref MyEC2Instance
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+
+  ALBListener8080:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 8080
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup8080
 
 Outputs:
   ALBDNSName:
