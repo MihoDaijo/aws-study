@@ -104,10 +104,24 @@ Resources:
       SubnetId: !Ref MyPublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP to ALB
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${NamePrefix}-ALB-SG"
+
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow SSH and HTTP for EC2
+      GroupDescription: Allow SSH and 8080 from ALB to EC2
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -115,9 +129,9 @@ Resources:
           ToPort: 22
           CidrIp: !Ref MyHomeIP
         - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
       Tags:
         - Key: Name
           Value: !Sub "${NamePrefix}-EC2-SG"
@@ -164,13 +178,14 @@ Resources:
   MyRDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: mydb
+      DBName: awsstudy
+      DBInstanceIdentifier: aws-study-rds2
       Engine: mysql
       EngineVersion: "8.0"
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
-      MasterUsername: admin
-      MasterUserPassword: admin12345
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterUserPassword
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref MyDBSubnetGroup
@@ -181,7 +196,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${NamePrefix}-RDS"
-
+  
   ALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -190,7 +205,7 @@ Resources:
         - !Ref MyPublicSubnet1
         - !Ref MyPublicSubnet2
       SecurityGroups:
-        - !Ref EC2SecurityGroup
+        - !Ref ALBSecurityGroup
       Scheme: internet-facing
       Type: application
       IpAddressType: ipv4
@@ -199,17 +214,17 @@ Resources:
           Value: !Sub "${NamePrefix}-ALB"
 
   ALBTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub "${NamePrefix}-TG"
-      VpcId: !Ref MyVPC
-      Port: 80
-      Protocol: HTTP
-      TargetType: instance
-      Targets:
-        - Id: !Ref MyEC2Instance
-      HealthCheckPath: /
-      HealthCheckIntervalSeconds: 30
+  Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  Properties:
+    Name: !Sub "${NamePrefix}-TG"
+    VpcId: !Ref MyVPC
+    Port: 8080
+    Protocol: HTTP
+    TargetType: instance
+    Targets:
+      - Id: !Ref MyEC2Instance
+    HealthCheckPath: /
+    HealthCheckIntervalSeconds: 30
 
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -220,6 +235,60 @@ Resources:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref ALBTargetGroup
+  
+    AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "AlarmTopic-${NamePrefix}"
+
+  CPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${NamePrefix}-CPUUtilizationAlarm"
+      AlarmDescription: !Sub "CPU使用率が0.01%以上でアラーム"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref MyEC2Instance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0.01
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  MyWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "${NamePrefix}-WebACL"
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "${NamePrefix}-WAFMetric"
+      Rules:
+        - Name: AWSManagedCommonRules
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRules
+
+  WAFALBAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref ALB
+      WebACLArn: !GetAtt MyWebACL.Arn
 
 Outputs:
   ALBDNSName:
@@ -233,3 +302,15 @@ Outputs:
   EC2PublicIP:
     Description: EC2 Public IP
     Value: !GetAtt MyEC2Instance.PublicIp
+
+  CPUAlarmName:
+    Description: 作成したCPUアラーム名
+    Value: !Ref CPUUtilizationAlarm
+
+  AlarmTopicArn:
+    Description: SNSトピックARN
+    Value: !Ref AlarmTopic
+
+  WebACLArn:
+    Description: 作成したWAF WebACLのARN
+    Value: !Ref MyWebACL
