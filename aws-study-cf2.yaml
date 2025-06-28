@@ -11,6 +11,15 @@ Parameters:
     Default: aws-study-cf
     Description: リソースに付与する Name タグのプレフィックス
 
+  DBMasterUsername:
+    Description: RDSのマスターユーザー名
+    Type: String
+
+  DBMasterUserPassword:
+    Description: RDSのマスターユーザーパスワード
+    Type: String
+    NoEcho: true
+
 Resources:
   MyVPC:
     Type: AWS::EC2::VPC
@@ -214,17 +223,17 @@ Resources:
           Value: !Sub "${NamePrefix}-ALB"
 
   ALBTargetGroup:
-  Type: AWS::ElasticLoadBalancingV2::TargetGroup
-  Properties:
-    Name: !Sub "${NamePrefix}-TG"
-    VpcId: !Ref MyVPC
-    Port: 8080
-    Protocol: HTTP
-    TargetType: instance
-    Targets:
-      - Id: !Ref MyEC2Instance
-    HealthCheckPath: /
-    HealthCheckIntervalSeconds: 30
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${NamePrefix}-TG"
+      VpcId: !Ref MyVPC
+      Port: 8080
+      Protocol: HTTP
+      TargetType: instance
+      Targets:
+        - Id: !Ref MyEC2Instance
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
 
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -236,7 +245,7 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref ALBTargetGroup
   
-    AlarmTopic:
+  AlarmTopic:  
     Type: AWS::SNS::Topic
     Properties:
       TopicName: !Sub "AlarmTopic-${NamePrefix}"
@@ -306,10 +315,6 @@ Outputs:
   CPUAlarmName:
     Description: 作成したCPUアラーム名
     Value: !Ref CPUUtilizationAlarm
-
-  AlarmTopicArn:
-    Description: SNSトピックARN
-    Value: !Ref AlarmTopic
 
   WebACLArn:
     Description: 作成したWAF WebACLのARN
