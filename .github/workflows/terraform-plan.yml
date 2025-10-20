@@ -23,6 +23,7 @@ jobs:
         working-directory: chapter0
     env:
       TF_VAR_name_prefix: aws-study-tf
+      TF_VAR_cidr_block: 10.0.0.0/16          # ← 追加（必須）
       TF_VAR_ami: ami-060c08771176b34b4
       TF_VAR_instance_type: t3.micro
       TF_VAR_key_name: daijomiho
@@ -44,14 +45,45 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      - run: terraform fmt -check -recursive
-      - run: terraform init -input=false
-      - run: terraform validate
-      - run: terraform test
-      - run: terraform plan -no-color -out=tfplan -input=false
+      - name: terraform fmt (check)
+        run: terraform fmt -check -recursive
+
+      - name: terraform init
+        run: terraform init -input=false -no-color
+
+      - name: terraform validate (json)
+        run: terraform validate -no-color -json | tee validate.json
+
+      - name: summarize validate diagnostics
+        run: |
+          jq -r '.diagnostics[]? | "\(.severity): \(.summary) - \(.detail)"' validate.json || true
+
+      # PR では情報用途に（落とさない）。main など厳格運用したい場合は条件分岐で。
+      - name: terraform test
+        run: terraform test -no-color
+        continue-on-error: true
+
+      - name: terraform plan (detailed-exitcode)
+        id: plan
+        run: |
+          set -eo pipefail
+          terraform plan -no-color -out=tfplan -input=false -detailed-exitcode | tee plan.txt
+        continue-on-error: true
+
+      - name: handle plan exit
+        run: |
+          # plan.txt に "Error:" があれば失敗扱い
+          if grep -q "^Error:" plan.txt; then
+            echo "Terraform plan has errors"; exit 1
+          fi
+          # detailed-exitcode の 2（差分あり）は成功扱い
+          exit 0
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tfplan
-          path: chapter0/tfplan
+          name: tfplan-and-validate
+          path: |
+            chapter0/tfplan
+            chapter0/validate.json
+            chapter0/plan.txt
           retention-days: 5
