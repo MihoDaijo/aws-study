@@ -1,0 +1,57 @@
+name: Terraform CI/CD (main)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'chapter0/**'
+      - '.github/workflows/terraform-cicd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  tf:
+    runs-on: ubuntu-latest
+    environment: prod   # ← GitHub Environments の Required reviewers と連動
+    defaults:
+      run:
+        working-directory: chapter0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC, APPLY role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false
+      - run: terraform validate
+      - run: terraform test
+      - run: terraform plan -out=tfplan -input=false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: chapter0/tfplan
+          retention-days: 5
+
+      - name: Wait for approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ secrets.APPROVERS }}
+          issue-title: "Approve Terraform Apply"
+          issue-body: "Approve to run terraform apply on main?"
+
+      - if: ${{ success() }}
+        run: terraform apply -input=false tfplan

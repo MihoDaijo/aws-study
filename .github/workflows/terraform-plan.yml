@@ -1,0 +1,48 @@
+name: Terraform PLAN (dev & PR)
+
+on:
+  pull_request:
+    paths:
+      - 'chapter0/**'
+      - '.github/workflows/terraform-plan.yml'
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - 'chapter0/**'
+      - '.github/workflows/terraform-plan.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chapter0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC, PLAN role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_PLAN }}
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false
+      - run: terraform validate
+      - run: terraform test
+      - run: terraform plan -no-color -out=tfplan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: chapter0/tfplan
+          retention-days: 5
