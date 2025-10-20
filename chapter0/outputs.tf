@@ -5,7 +5,7 @@ output "alb_dns_name" {
 
 output "rds_endpoint" {
   description = "RDS のエンドポイントアドレス"
-  value = module.rds.rds_endpoint
+  value       = module.rds.rds_endpoint
 }
 
 output "ec2_public_ip" {

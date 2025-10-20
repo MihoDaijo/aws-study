@@ -55,7 +55,7 @@ run "invalid_ami_fails" {
 
   variables {
     name               = "aws-study-tf-ec2"
-    ami                = "ami-XYZ"                 # 不正形式
+    ami                = "ami-XYZ" # 不正形式
     instance_type      = "t3.micro"
     subnet_id          = "subnet-12345678"
     security_group_ids = ["sg-12345678"]
@@ -72,7 +72,7 @@ run "invalid_instance_type_fails" {
   variables {
     name               = "aws-study-tf-ec2"
     ami                = "ami-060c08771176b34b4"
-    instance_type      = "INVALID.TYPE!"           # 不正形式
+    instance_type      = "INVALID.TYPE!" # 不正形式
     subnet_id          = "subnet-12345678"
     security_group_ids = ["sg-12345678"]
     key_name           = "daijomiho"
@@ -89,7 +89,7 @@ run "invalid_subnet_fails" {
     name               = "aws-study-tf-ec2"
     ami                = "ami-060c08771176b34b4"
     instance_type      = "t3.micro"
-    subnet_id          = "sub-xxxx"                # 不正形式
+    subnet_id          = "sub-xxxx" # 不正形式
     security_group_ids = ["sg-12345678"]
     key_name           = "daijomiho"
   }
@@ -106,7 +106,7 @@ run "empty_sg_list_fails" {
     ami                = "ami-060c08771176b34b4"
     instance_type      = "t3.micro"
     subnet_id          = "subnet-12345678"
-    security_group_ids = []                        # 空
+    security_group_ids = [] # 空
     key_name           = "daijomiho"
   }
 
@@ -123,7 +123,7 @@ run "empty_key_name_fails" {
     instance_type      = "t3.micro"
     subnet_id          = "subnet-12345678"
     security_group_ids = ["sg-12345678"]
-    key_name           = ""                        # 空
+    key_name           = "" # 空
   }
 
   expect_failures = [var.key_name]

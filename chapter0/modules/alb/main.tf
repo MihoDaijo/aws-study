@@ -12,17 +12,17 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "target_group" {
-  name     = "${var.name_prefix}-TG"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.name_prefix}-TG"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
   target_type = "instance"
 
   health_check {
-    path                = "/"
-    interval            = 30
-    protocol            = "HTTP"
-    matcher             = "200"
+    path     = "/"
+    interval = 30
+    protocol = "HTTP"
+    matcher  = "200"
   }
 
   tags = {

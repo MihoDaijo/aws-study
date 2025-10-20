@@ -9,7 +9,7 @@ locals {
 
   # OIDC Subject（どの実行を許可するか）
   # main での push 実行のみ（APPLY用）
-  sub_main  = "repo:${local.github_repo}:ref:refs/heads/main"
+  sub_main = "repo:${local.github_repo}:ref:refs/heads/main"
   # 開発ブランチや PR 実行（PLAN用）。PRは refs/pull/*/merge で来る
   sub_heads = "repo:${local.github_repo}:ref:refs/heads/*"
   sub_prs   = "repo:${local.github_repo}:ref:refs/pull/*/merge"
@@ -25,8 +25,8 @@ locals {
 # 既に手動作成済みなら "terraform import" で取り込み可
 ########################################
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # GitHub OIDC のルートCAフィンガープリント（ATS）
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
@@ -37,7 +37,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 # APPLY（main のみ）
 data "aws_iam_policy_document" "trust_apply_main" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
@@ -63,7 +63,7 @@ data "aws_iam_policy_document" "trust_apply_main" {
 # PLAN（開発ブランチ & PR）
 data "aws_iam_policy_document" "trust_plan_all" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
@@ -109,8 +109,8 @@ resource "aws_iam_role" "gha_tf_plan" {
 # 共通：State backend 読み取り＋DynamoDB ロック操作
 data "aws_iam_policy_document" "common_state_access" {
   statement {
-    sid     = "S3StateAccess"
-    effect  = "Allow"
+    sid    = "S3StateAccess"
+    effect = "Allow"
     actions = [
       "s3:GetBucketLocation",
       "s3:ListBucket",
@@ -123,8 +123,8 @@ data "aws_iam_policy_document" "common_state_access" {
   }
 
   statement {
-    sid     = "DynamoDBLock"
-    effect  = "Allow"
+    sid    = "DynamoDBLock"
+    effect = "Allow"
     actions = [
       "dynamodb:DescribeTable",
       "dynamodb:GetItem",
@@ -141,8 +141,8 @@ data "aws_iam_policy_document" "common_state_access" {
 # PLAN用：読み取り系のみ（Describe/List/Get）
 data "aws_iam_policy_document" "plan_readonly_services" {
   statement {
-    sid     = "ReadOnlyServices"
-    effect  = "Allow"
+    sid    = "ReadOnlyServices"
+    effect = "Allow"
     actions = [
       "ec2:Describe*",
       "elasticloadbalancing:Describe*",
@@ -165,8 +165,8 @@ data "aws_iam_policy_document" "plan_readonly_services" {
 # APPLY用：作成/更新/削除を許可（まずは広め→後で最小権限に絞る）
 data "aws_iam_policy_document" "apply_services" {
   statement {
-    sid     = "TerraformApplyWrites"
-    effect  = "Allow"
+    sid    = "TerraformApplyWrites"
+    effect = "Allow"
     actions = [
       "ec2:*",
       "elasticloadbalancing:*",
@@ -182,8 +182,8 @@ data "aws_iam_policy_document" "apply_services" {
 
   # apply 時は state 更新が発生するため S3 Put/Delete が必要
   statement {
-    sid     = "S3PutDeleteState"
-    effect  = "Allow"
+    sid    = "S3PutDeleteState"
+    effect = "Allow"
     actions = [
       "s3:PutObject",
       "s3:DeleteObject"
@@ -197,8 +197,8 @@ data "aws_iam_policy_document" "apply_services" {
 # どちらのロールでも IAM/Organizations/Account 管理系は拒否
 data "aws_iam_policy_document" "deny_iam_admin" {
   statement {
-    sid     = "DenyIAMAdmin"
-    effect  = "Deny"
+    sid    = "DenyIAMAdmin"
+    effect = "Deny"
     actions = [
       "iam:*",
       "organizations:*",
