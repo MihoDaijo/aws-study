@@ -42,20 +42,35 @@ jobs:
       TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@v4
-      - name: Configure AWS (OIDC, APPLY role)
+
+      # ✅ PRでは PLAN ロールで認証（APPLYロールのTrustを弄らず安全に通す）
+      - name: Configure AWS (OIDC, PLAN role for PR)
+        if: github.event_name == 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_PLAN }}
+          aws-region: ap-northeast-1
+
+      # ✅ main push / 手動実行では APPLY ロールで認証
+      - name: Configure AWS (OIDC, APPLY role for main)
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
           aws-region: ap-northeast-1
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.6
+
       - run: terraform fmt -check -recursive
       - run: terraform init -input=false -no-color
       - run: terraform validate -no-color
       - run: terraform test -no-color
+
       - name: terraform plan (detailed-exitcode)
         run: terraform plan -no-color -out=tfplan -input=false -detailed-exitcode | tee plan.txt
+
       - uses: actions/upload-artifact@v4
         with:
           name: tfplan
@@ -66,7 +81,7 @@ jobs:
 
   apply:
     name: Apply (main only)
-    if: github.event_name == 'push'   # ← PRではスキップ、main push時のみ
+    if: github.event_name == 'push'   # ← PRでは実行しない
     needs: plan
     runs-on: ubuntu-latest
     environment: prod
@@ -88,18 +103,23 @@ jobs:
       TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Configure AWS (OIDC, APPLY role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
           aws-region: ap-northeast-1
+
       - uses: actions/download-artifact@v4
         with:
           name: tfplan
           path: chapter0
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.6
+
       - run: terraform init -input=false -no-color
+
       - name: terraform apply
         run: terraform apply -input=false tfplan
