@@ -20,5 +20,6 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: chapter0 } }
-    # （中略：中身はそのままでOK）
+    steps:
+      - name: No-op
+        run: echo "terraform-plan is disabled; use cicd workflow for PR."
