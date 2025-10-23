@@ -1,6 +1,6 @@
 resource "aws_db_subnet_group" "this" {
-  name       = "${var.name_prefix}-rds-subnet-group"
-  subnet_ids = var.db_subnet_ids
+  name        = "${var.name_prefix}-rds-subnet-group"
+  subnet_ids  = var.db_subnet_ids
   description = "Subnet group for RDS"
 
   tags = {

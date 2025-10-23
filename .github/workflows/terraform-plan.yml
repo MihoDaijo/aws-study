@@ -1,0 +1,24 @@
+# .github/workflows/terraform-plan.yml
+name: Terraform PLAN (dev & PR)
+
+on:
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - 'chapter0/**'
+      - '.github/workflows/terraform-plan.yml'
+  # ← pull_request ブロックは削除
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: chapter0 } }
+    # （中略：中身はそのままでOK）

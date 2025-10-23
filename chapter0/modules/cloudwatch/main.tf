@@ -22,5 +22,5 @@ resource "aws_cloudwatch_metric_alarm" "cpu_utilization_alarm" {
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alarm_topic.arn
   protocol  = "email"
-  endpoint  = var.notification_email  # ここに通知を受け取るメールアドレス
+  endpoint  = var.notification_email # ここに通知を受け取るメールアドレス
 }
