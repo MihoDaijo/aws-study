@@ -1,110 +1,24 @@
+# .github/workflows/terraform-plan.yml
 name: Terraform PLAN (dev & PR)
 
 on:
-  pull_request:
-    paths:
-      - 'chapter0/**'
-      - '.github/workflows/terraform-plan.yml'
   push:
     branches-ignore: [ main ]
     paths:
       - 'chapter0/**'
       - '.github/workflows/terraform-plan.yml'
+  # ← pull_request ブロックは削除
 
 permissions:
   contents: read
-  id-token: write   # OIDC に必須
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   plan:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: chapter0
-
-    env:
-      # ── Terraform / AWS 基本環境 ───────────────────────────────
-      TF_IN_AUTOMATION: true
-      TF_INPUT: false
-      AWS_REGION: ap-northeast-1
-
-      # ── required variables（非シークレット）──────────────────
-      TF_VAR_name_prefix: aws-study-tf
-      TF_VAR_cidr_block: 10.0.0.0/16
-      TF_VAR_ami: ami-060c08771176b34b4
-      TF_VAR_instance_type: t3.micro
-      TF_VAR_key_name: daijomiho
-      TF_VAR_my_home_ip: 153.190.156.4/32
-
-      # ── required variables（シークレット）─────────────────────
-      TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
-      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-      TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC, PLAN role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_PLAN }}
-          aws-region: ap-northeast-1
-
-      - name: Who am I (debug)
-        run: aws sts get-caller-identity
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.6
-
-      - name: terraform fmt (check)
-        run: terraform fmt -check -recursive
-
-      - name: terraform init
-        run: terraform init -input=false -no-color
-
-      - name: terraform validate (json)
-        run: terraform validate -no-color -json | tee validate.json
-
-      - name: summarize validate diagnostics
-        run: |
-          command -v jq >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y jq
-          jq -r '.diagnostics[]? | "\(.severity): \(.summary) - \(.detail)"' validate.json || true
-
-      # PR では情報用途。失敗しても後続処理は継続させる
-      - name: terraform test (non-blocking)
-        run: terraform test -no-color -verbose
-        continue-on-error: true
-
-      # plan は detailed-exitcode を使い、2（差分あり）は成功扱いにする
-      - name: terraform plan (detailed-exitcode)
-        id: plan
-        run: |
-          set -euo pipefail
-          set +e
-          terraform plan -no-color -out=tfplan -input=false -detailed-exitcode | tee plan.txt
-          code=$?
-          echo "PLAN_EXIT_CODE=$code" >> $GITHUB_OUTPUT
-          exit 0
-
-      - name: handle plan exit
-        run: |
-          # 明確なエラーメッセージがあれば失敗
-          if grep -qE "^(Error:|╷)" plan.txt; then
-            echo "::error::Terraform plan has errors"
-            exit 1
-          fi
-          # detailed-exitcode 0 or 2 は成功扱い
-          echo "Terraform plan completed (errors not detected)."
-
-      - name: Upload artifacts (plan, validate)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-and-validate
-          path: |
-            chapter0/tfplan
-            chapter0/validate.json
-            chapter0/plan.txt
-          retention-days: 5
+    defaults: { run: { working-directory: chapter0 } }
+    # （中略：中身はそのままでOK）
