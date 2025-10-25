@@ -81,63 +81,7 @@ jobs:
     if: github.event_name == 'push'   # PRでは実行しない
     needs: plan
     runs-on: ubuntu-latest
-    environment: production           # ← ここを production に統一
+    environment: production           # ← 環境名を production に統一
     defaults:
       run:
-        working-directory: chapter0
-    env:
-      TF_IN_AUTOMATION: true
-      TF_INPUT: false
-      AWS_REGION: ap-northeast-1
-      TF_VAR_name_prefix: aws-study-tf
-      TF_VAR_cidr_block: 10.0.0.0/16
-      TF_VAR_ami: ami-060c08771176b34b4
-      TF_VAR_instance_type: t3.micro
-      TF_VAR_key_name: daijomiho
-      TF_VAR_my_home_ip: 153.190.156.4/32
-      TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
-      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-      TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
-    steps:
-      - uses: actions/checkout@v4
-
-      # 🔎 OIDC の sub を表示（原因特定用・必要に応じて残してOK）
-      - name: Debug OIDC token claims
-        shell: bash
-        run: |
-          set -e
-          echo "GITHUB_REF=$GITHUB_REF"
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
-          echo "job.environment=${{ job.environment }}"
-          RESP=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
-          python - <<'PY' <<<"$RESP"
-import json,base64,sys
-tok=json.loads(sys.stdin.read())["value"]
-hdr,pay,_=tok.split(".")
-dec=lambda s: base64.urlsafe_b64decode(s + "="*((4-len(s)%4)%4)).decode()
-print(dec(pay))  # payload を出力（"sub" を含む）
-PY
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-
-      - name: Configure AWS (OIDC, APPLY role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
-          aws-region: ap-northeast-1
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: chapter0
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.6
-
-      - run: terraform init -input=false -no-color
-
-      - name: terraform apply
-        run: terraform apply -input=false tfplan
+        working-directory: c
