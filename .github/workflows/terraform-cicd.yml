@@ -7,9 +7,6 @@ on:
       - '.github/workflows/terraform-cicd.yml'
   push:
     branches: [ main ]
-    paths:
-      - 'chapter0/**'
-      - '.github/workflows/terraform-cicd.yml'
   workflow_dispatch:
 
 permissions:
