@@ -100,12 +100,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Apply は main 以外では何もしない（ジョブは存在・stepsは定義しておく）
+      # main ブランチの push 以外では以降スキップ（steps は存在させる）
       - name: Guard (skip if not main push)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-        run: echo "Not main push. Skipping apply." && exit 0
+        run: echo "Not main push. Skipping apply."
 
-      # 🔎 OIDC の sub を表示（堅牢版）
+      # 🔎 OIDC の sub を表示（構文事故を避ける最小構成）
       - name: Debug OIDC token claims
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -116,19 +116,9 @@ jobs:
           echo "GITHUB_REF=$GITHUB_REF"
           echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
           echo "JOB_ENV=${{ job.environment }}"
-          RESP="$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")"
-          python - "$RESP" <<'PY'
-import sys, json, base64
-resp = sys.argv[1]
-tok = json.loads(resp)["value"]
-parts = tok.split(".")
-if len(parts) < 2:
-    raise SystemExit("Invalid JWT format")
-payload = parts[1]
-pad = "=" * (-len(payload) % 4)
-print(base64.urlsafe_b64decode(payload + pad).decode())
-PY
+          RESP="$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")"
+          RESP_JSON=$(printf '%s' "$RESP")
+          RESP_JSON="$RESP_JSON" python -c 'import os,json,base64; tok=json.loads(os.environ["RESP_JSON"])["value"]; p=tok.split(".")[1]; pad="="*((4-len(p)%4)%4); print(base64.urlsafe_b64decode(p+pad).decode())'
 
       - name: Configure AWS (OIDC, APPLY role)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -148,8 +138,9 @@ PY
         with:
           terraform_version: 1.9.6
 
-      - run: terraform init -input=false -no-color
+      - name: terraform init
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform init -input=false -no-color
 
       - name: terraform apply
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
