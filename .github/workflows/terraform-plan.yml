@@ -1,5 +1,5 @@
 # .github/workflows/terraform-plan.yml
-name: Terraform PLAN (dev & PR)
+name: Terraform PLAN (branches except main)
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
     paths:
       - 'chapter0/**'
       - '.github/workflows/terraform-plan.yml'
-  # ← pull_request ブロックは削除
 
 permissions:
   contents: read
@@ -20,6 +19,63 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chapter0
+    env:
+      TF_IN_AUTOMATION: true
+      TF_INPUT: false
+      AWS_REGION: ap-northeast-1
+      TF_VAR_name_prefix: aws-study-tf
+      TF_VAR_cidr_block: 10.0.0.0/16
+      TF_VAR_ami: ami-060c08771176b34b4
+      TF_VAR_instance_type: t3.micro
+      TF_VAR_key_name: daijomiho
+      TF_VAR_my_home_ip: 153.190.156.4/32
+      TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
     steps:
-      - name: No-op
-        run: echo "terraform-plan is disabled; use cicd workflow for PR."
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC, PLAN role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_PLAN }}
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.6
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false -no-color
+      - run: terraform validate -no-color
+      - run: terraform test -no-color
+
+      # ← pipefail版（失敗時に壊れた tfplan を残さない）
+      - name: terraform plan (detailed-exitcode, pipefail)
+        id: tfplan
+        run: |
+          set -euo pipefail
+          terraform plan -no-color -out=tfplan -input=false -detailed-exitcode > plan_raw.txt || ec=$?
+          ec=${ec:-0}
+          if [ "$ec" -eq 0 ]; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+          elif [ "$ec" -eq 2 ]; then
+            echo "no_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::terraform plan failed (exit 1). See plan_raw.txt for details."
+            exit 1
+          fi
+          terraform show -no-color tfplan > plan.txt
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: tfplan-${{ github.ref_name }}
+          path: |
+            chapter0/tfplan
+            chapter0/plan.txt
+            chapter0/plan_raw.txt
+          retention-days: 7

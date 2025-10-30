@@ -24,6 +24,9 @@ jobs:
     defaults:
       run:
         working-directory: chapter0
+    # plan結果をapplyへ受け渡し
+    outputs:
+      no_changes: ${{ steps.tfplan.outputs.no_changes }}
     env:
       TF_IN_AUTOMATION: true
       TF_INPUT: false
@@ -40,20 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PR時は PLAN ロール
-      - name: Configure AWS (OIDC, PLAN role for PR)
-        if: github.event_name == 'pull_request'
+      # ✅ PLANは常にPLANロールで認証（PR/MAIN問わず安全）
+      - name: Configure AWS (OIDC, PLAN role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_PLAN }}
-          aws-region: ap-northeast-1
-
-      # main push / 手動実行時は APPLY ロール
-      - name: Configure AWS (OIDC, APPLY role for main)
-        if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
           aws-region: ap-northeast-1
 
       - uses: hashicorp/setup-terraform@v3
@@ -65,20 +59,44 @@ jobs:
       - run: terraform validate -no-color
       - run: terraform test -no-color
 
-      - name: terraform plan (detailed-exitcode)
-        run: terraform plan -no-color -out=tfplan -input=false -detailed-exitcode | tee plan.txt
+      # ✅ pipefailで失敗検知、壊れたtfplanを残さない
+      - name: terraform plan (detailed-exitcode, pipefail)
+        id: tfplan
+        run: |
+          set -euo pipefail
+          # 実行（出力はファイルへ、終了コードを保持）
+          terraform plan -no-color -out=tfplan -input=false -detailed-exitcode > plan_raw.txt || ec=$?
+          ec=${ec:-0}
 
+          # 結果を判定してoutputsへ
+          if [ "$ec" -eq 0 ]; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+          elif [ "$ec" -eq 2 ]; then
+            echo "no_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::terraform plan failed (exit 1). See plan_raw.txt for details."
+            exit 1
+          fi
+
+          # 人間用のplanテキスト
+          terraform show -no-color tfplan > plan.txt
+
+      # ✅ planが成功した時だけ成果物をアップロード
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: tfplan
           path: |
             chapter0/tfplan
             chapter0/plan.txt
+            chapter0/plan_raw.txt
           retention-days: 7
 
   apply:
     name: Apply (main only)
     needs: plan
+    # ✅ mainへのpush かつ 差分あり の場合のみ実行
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.no_changes == 'false'
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -100,48 +118,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # main ブランチの push 以外では以降スキップ（steps は存在させる）
-      - name: Guard (skip if not main push)
-        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-        run: echo "Not main push. Skipping apply."
-
-      # 🔎 OIDC の sub を表示（構文事故を避ける最小構成）
-      - name: Debug OIDC token claims
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-        run: |
-          set -e
-          echo "GITHUB_REF=$GITHUB_REF"
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
-          echo "JOB_ENV=${{ job.environment }}"
-          RESP="$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")"
-          RESP_JSON=$(printf '%s' "$RESP")
-          RESP_JSON="$RESP_JSON" python -c 'import os,json,base64; tok=json.loads(os.environ["RESP_JSON"])["value"]; p=tok.split(".")[1]; pad="="*((4-len(p)%4)%4); print(base64.urlsafe_b64decode(p+pad).decode())'
-
       - name: Configure AWS (OIDC, APPLY role)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TF_APPLY }}
           aws-region: ap-northeast-1
 
       - uses: actions/download-artifact@v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           name: tfplan
           path: chapter0
 
       - uses: hashicorp/setup-terraform@v3
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           terraform_version: 1.9.6
 
       - name: terraform init
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform init -input=false -no-color
 
       - name: terraform apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform apply -input=false tfplan
