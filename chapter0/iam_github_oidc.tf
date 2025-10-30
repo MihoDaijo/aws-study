@@ -249,10 +249,12 @@ resource "aws_iam_role_policy_attachment" "plan_read" {
   policy_arn = aws_iam_policy.plan_readonly.arn
 }
 
+/* Plan には Deny を付けない（Describe/Get/List まで潰れるため）
 resource "aws_iam_role_policy_attachment" "plan_deny" {
   role       = aws_iam_role.gha_tf_plan.name
   policy_arn = aws_iam_policy.deny_admin.arn
 }
+*/
 
 # APPLY role
 resource "aws_iam_role_policy_attachment" "apply_common" {
