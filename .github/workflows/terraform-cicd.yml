@@ -137,4 +137,4 @@ jobs:
         run: terraform init -input=false -no-color
 
       - name: terraform apply
-        run: terraform apply -input=false tfplan
+        run: terraform apply -input=false chapter0/tfplan
