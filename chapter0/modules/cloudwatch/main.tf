@@ -4,7 +4,7 @@ resource "aws_sns_topic" "alarm_topic" {
 
 resource "aws_cloudwatch_metric_alarm" "cpu_utilization_alarm" {
   alarm_name          = "${var.name_prefix}-CPUUtilizationAlarm"
-  alarm_description   = "CPU使用率が${var.cpu_threshold}%以上でアラーム"
+  alarm_description   = "CPU使用率が0.01%以上でアラーム（Applyテスト）"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
   metric_name         = "CPUUtilization"
@@ -22,5 +22,5 @@ resource "aws_cloudwatch_metric_alarm" "cpu_utilization_alarm" {
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alarm_topic.arn
   protocol  = "email"
-  endpoint  = var.notification_email # ここに通知を受け取るメールアドレス
+  endpoint  = var.notification_email
 }
