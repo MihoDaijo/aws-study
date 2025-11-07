@@ -87,9 +87,9 @@ jobs:
         with:
           name: tfplan
           path: |
-            tfplan
-            plan.txt
-            plan_raw.txt
+            chapter0/tfplan
+            chapter0/plan.txt
+            chapter0/plan_raw.txt
           retention-days: 7
 
   apply:
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: tfplan
-          path: .
+          path: chapter0
 
       - uses: hashicorp/setup-terraform@v3
         with:
