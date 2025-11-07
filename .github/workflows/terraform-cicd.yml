@@ -87,9 +87,9 @@ jobs:
         with:
           name: tfplan
           path: |
-            chapter0/tfplan
-            chapter0/plan.txt
-            chapter0/plan_raw.txt
+            tfplan
+            plan.txt
+            plan_raw.txt
           retention-days: 7
 
   apply:
@@ -137,4 +137,4 @@ jobs:
         run: terraform init -input=false -no-color
 
       - name: terraform apply
-        run: terraform apply -input=false chapter0/tfplan
+        run: terraform apply -input=false tfplan
