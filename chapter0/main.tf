@@ -107,5 +107,5 @@ module "cloudwatch" {
   ec2_instance_id    = module.ec2.instance_id
   name_prefix        = var.name_prefix
   notification_email = var.notification_email # ← 追加！
-  cpu_threshold      = 0.03
+  cpu_threshold      = 0.01
 }
