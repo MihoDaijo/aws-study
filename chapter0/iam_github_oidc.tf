@@ -12,7 +12,7 @@ locals {
   sub_main = "repo:${local.github_repo}:ref:refs/heads/main"
   # 開発ブランチや PR 実行（PLAN用）。PRは refs/pull/*/merge で来る
   sub_heads = "repo:${local.github_repo}:ref:refs/heads/*"
-  sub_prs   = "repo:${local.github_repo}:ref:refs/pull/*/merge"
+  sub_pr = "repo:${local.github_repo}:pull_request"
 
   # Terraform backend
   bucket_name = "tf-handson-mihodaijo"
@@ -80,11 +80,11 @@ data "aws_iam_policy_document" "trust_plan_all" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # refs/heads/* と refs/pull/*/merge を許可
+    # devブランチ(push等) + PR(plan) を許可
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [local.sub_heads, local.sub_prs]
+      values = [local.sub_heads, local.sub_pr]
     }
   }
 }
@@ -178,7 +178,16 @@ data "aws_iam_policy_document" "apply_services" {
       "logs:*",
       "sns:*",
       "ssm:*",
-      "autoscaling:*"
+      "autoscaling:*",
+
+      # ★ 追加: WAF を Terraform から作成/更新/削除できるように
+      "wafv2:*",
+
+      # ★ 追加: GitHub Actions 用の IAM 操作用
+      "iam:CreateOpenIDConnectProvider",
+      "iam:CreatePolicy",
+      "iam:AttachRolePolicy",
+      "iam:UpdateAssumeRolePolicy"
     ]
     resources = ["*"]
   }
@@ -203,7 +212,7 @@ data "aws_iam_policy_document" "deny_iam_admin" {
     sid    = "DenyIAMAdmin"
     effect = "Deny"
     actions = [
-      "iam:*",
+      # "iam:*",  # ★ コメントアウト or 削除
       "organizations:*",
       "account:*"
     ]

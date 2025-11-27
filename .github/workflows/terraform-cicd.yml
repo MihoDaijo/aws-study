@@ -98,7 +98,6 @@ jobs:
     # ✅ mainへのpush かつ 差分あり の場合のみ実行
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
     defaults:
       run:
         working-directory: chapter0
