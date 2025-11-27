@@ -12,7 +12,7 @@ locals {
   sub_main = "repo:${local.github_repo}:ref:refs/heads/main"
   # 開発ブランチや PR 実行（PLAN用）。PRは refs/pull/*/merge で来る
   sub_heads = "repo:${local.github_repo}:ref:refs/heads/*"
-  sub_pr = "repo:${local.github_repo}:pull_request"
+  sub_pr    = "repo:${local.github_repo}:pull_request"
 
   # Terraform backend
   bucket_name = "tf-handson-mihodaijo"
@@ -84,7 +84,7 @@ data "aws_iam_policy_document" "trust_plan_all" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [local.sub_heads, local.sub_pr]
+      values   = [local.sub_heads, local.sub_pr]
     }
   }
 }
