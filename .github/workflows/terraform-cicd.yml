@@ -81,7 +81,7 @@ jobs:
           # 人間用のplanテキスト
           terraform show -no-color tfplan > plan.txt
 
-      # ✅ planが成功した時だけ成果物をアップロード
+      # ✅ planが成功した時だけ成果物アップロード
       - uses: actions/upload-artifact@v4
         if: success()
         with:
