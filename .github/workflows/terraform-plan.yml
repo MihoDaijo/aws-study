@@ -53,7 +53,7 @@ jobs:
       - run: terraform validate -no-color
       - run: terraform test -no-color
 
-      # ← pipefail版（失敗時に壊れた tfplan を残さない）
+      # ← pipefail版（失敗時に壊れた tfplan を残さな）
       - name: terraform plan (detailed-exitcode, pipefail)
         id: tfplan
         run: |
