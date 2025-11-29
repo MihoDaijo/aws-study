@@ -11,7 +11,7 @@ variable "ec2_instance_id" {
 variable "cpu_threshold" {
   description = "CPU utilization threshold (%)"
   type        = number
-  default     = 0.01
+  default     = 0.02
 }
 
 variable "notification_email" {

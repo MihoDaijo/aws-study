@@ -94,18 +94,11 @@ module "alb" {
   instance_id       = module.ec2.instance_id
 }
 
-# WAF
-module "waf" {
-  source       = "./modules/waf"
-  name         = "${var.name_prefix}-WAF"
-  resource_arn = module.alb.alb_arn
-}
-
 # CloudWatch
 module "cloudwatch" {
   source             = "./modules/cloudwatch"
   ec2_instance_id    = module.ec2.instance_id
   name_prefix        = var.name_prefix
   notification_email = var.notification_email # ← 追加！
-  cpu_threshold      = 0.01
+  cpu_threshold      = 0.02
 }
