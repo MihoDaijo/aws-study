@@ -4,7 +4,7 @@ resource "aws_sns_topic" "alarm_topic" {
 
 resource "aws_cloudwatch_metric_alarm" "cpu_utilization_alarm" {
   alarm_name          = "${var.name_prefix}-CPUUtilizationAlarm"
-  alarm_description   = "CPU使用率が0.02%以上でアラーム（本番Applyテスト）"
+  alarm_description   = "CPU使用率が0.03%以上でアラーム（本番Applyテスト）"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
   metric_name         = "CPUUtilization"

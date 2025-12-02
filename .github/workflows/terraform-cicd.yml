@@ -96,8 +96,9 @@ jobs:
     name: Apply (main only)
     needs: plan
     # ✅ mainへのpush かつ 差分あり の場合のみ実行
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.no_changes == 'false'
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: chapter0
