@@ -1,0 +1,4 @@
+# Ansible local inventory (do not commit)
+ansible/inventory_ssh.ini
+*.pem
+*.key
