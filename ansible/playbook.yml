@@ -1,0 +1,47 @@
+- hosts: app
+  become: true
+
+  tasks:
+    - name: Install Java (Corretto 21)
+      ansible.builtin.dnf:
+        name: java-21-amazon-corretto-devel
+        state: present
+
+    - name: Create app dir
+      ansible.builtin.file:
+        path: /opt/app
+        state: directory
+        mode: "0755"
+
+    - name: Upload jar
+      ansible.builtin.copy:
+        src: app.jar
+        dest: /opt/app/app.jar
+        mode: "0644"
+
+    - name: Create systemd unit
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/springboot.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Spring Boot App
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=ec2-user
+          WorkingDirectory=/opt/app
+          ExecStart=/usr/bin/java -jar /opt/app/app.jar
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: springboot
+        enabled: true
+        state: restarted
+        daemon_reload: true

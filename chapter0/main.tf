@@ -59,12 +59,51 @@ module "security_group" {
 # EC2
 module "ec2" {
   source             = "./modules/ec2"
-  ami                = var.ami
+  ami                = data.aws_ami.al2023.id
   instance_type      = var.instance_type
   subnet_id          = module.subnet.public_subnet_ids[0]
   security_group_ids = [module.security_group.ec2_sg_id]
   key_name           = var.key_name
   name               = "${var.name_prefix}-EC2"
+
+  user_data = <<-EOF
+#!/bin/bash
+set -euxo pipefail
+
+dnf -y update
+dnf -y install ansible
+
+cat > /home/ec2-user/java.yml <<'YAML'
+- hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Install Java (Amazon Corretto 21)
+      ansible.builtin.dnf:
+        name: java-21-amazon-corretto-devel
+        state: present
+
+    - name: Verify java
+      ansible.builtin.command: java -version
+      register: jver
+      changed_when: false
+
+    - debug:
+        var: jver.stderr_lines
+YAML
+
+chown ec2-user:ec2-user /home/ec2-user/java.yml
+
+# ★追加：inventory.ini を作成
+cat > /home/ec2-user/inventory.ini <<'INV'
+[local]
+localhost ansible_connection=local
+INV
+chown ec2-user:ec2-user /home/ec2-user/inventory.ini
+
+# ★変更：inventory を指定して実行
+ansible-playbook -i /home/ec2-user/inventory.ini /home/ec2-user/java.yml
+EOF
 }
 
 # RDS

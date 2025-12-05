@@ -1,3 +1,8 @@
+data "aws_ssm_parameter" "al2023_ami" {
+  # x86_64 の AL2023 最新AMI
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
 resource "aws_instance" "web" {
   ami                         = var.ami
   instance_type               = var.instance_type
@@ -7,14 +12,7 @@ resource "aws_instance" "web" {
   associate_public_ip_address = true
   disable_api_termination     = true
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl enable httpd
-              systemctl start httpd
-              echo "Hello from EC2!" > /var/www/html/index.html
-              EOF
+  user_data = var.user_data
 
   tags = {
     Name = var.name

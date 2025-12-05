@@ -28,10 +28,9 @@ jobs:
       AWS_REGION: ap-northeast-1
       TF_VAR_name_prefix: aws-study-tf
       TF_VAR_cidr_block: 10.0.0.0/16
-      TF_VAR_ami: ami-060c08771176b34b4
       TF_VAR_instance_type: t3.micro
-      TF_VAR_key_name: daijomiho
-      TF_VAR_my_home_ip: 153.190.156.4/32
+      TF_VAR_key_name: ${{ secrets.TF_KEY_NAME }}
+      TF_VAR_my_home_ip: ${{ secrets.TF_MY_HOME_IP }}
       TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
       TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
       TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
