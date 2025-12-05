@@ -1,3 +1,4 @@
+# .github/workflows/terraform-cicd.yml
 name: Terraform CI/CD (main)
 
 on:
@@ -24,7 +25,6 @@ jobs:
     defaults:
       run:
         working-directory: chapter0
-    # plan結果をapplyへ受け渡し
     outputs:
       no_changes: ${{ steps.tfplan.outputs.no_changes }}
     env:
@@ -33,17 +33,15 @@ jobs:
       AWS_REGION: ap-northeast-1
       TF_VAR_name_prefix: aws-study-tf
       TF_VAR_cidr_block: 10.0.0.0/16
-      TF_VAR_ami: ami-060c08771176b34b4
       TF_VAR_instance_type: t3.micro
-      TF_VAR_key_name: daijomiho
-      TF_VAR_my_home_ip: 153.190.156.4/32
+      TF_VAR_key_name: ${{ secrets.TF_KEY_NAME }}
+      TF_VAR_my_home_ip: ${{ secrets.TF_MY_HOME_IP }}
       TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
       TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
       TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@v4
 
-      # ✅ PLANは常にPLANロールで認証（PR/MAIN問わず安全）
       - name: Configure AWS (OIDC, PLAN role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -54,21 +52,20 @@ jobs:
         with:
           terraform_version: 1.9.6
 
-      - run: terraform fmt -check -recursive
-      - run: terraform init -input=false -no-color
-      - run: terraform validate -no-color
-      - run: terraform test -no-color
+      - name: Terraform fmt/validate/test
+        run: |
+          terraform fmt -check -recursive
+          terraform init -input=false -no-color
+          terraform validate -no-color
+          terraform test -no-color
 
-      # ✅ pipefailで失敗検知、壊れたtfplanを残さない
       - name: terraform plan (detailed-exitcode, pipefail)
         id: tfplan
         run: |
           set -euo pipefail
-          # 実行（出力はファイルへ、終了コードを保持）
           terraform plan -no-color -out=tfplan -input=false -detailed-exitcode > plan_raw.txt || ec=$?
           ec=${ec:-0}
 
-          # 結果を判定してoutputsへ
           if [ "$ec" -eq 0 ]; then
             echo "no_changes=true" >> "$GITHUB_OUTPUT"
           elif [ "$ec" -eq 2 ]; then
@@ -78,10 +75,8 @@ jobs:
             exit 1
           fi
 
-          # 人間用のplanテキスト
           terraform show -no-color tfplan > plan.txt
 
-      # ✅ planが成功した時だけ成果物をアップロード
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -93,11 +88,11 @@ jobs:
           retention-days: 7
 
   apply:
-    name: Apply (main only)
+    name: Apply + Deploy (main only)
     needs: plan
-    # ✅ mainへのpush かつ 差分あり の場合のみ実行
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.no_changes == 'false'
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: chapter0
@@ -107,13 +102,16 @@ jobs:
       AWS_REGION: ap-northeast-1
       TF_VAR_name_prefix: aws-study-tf
       TF_VAR_cidr_block: 10.0.0.0/16
-      TF_VAR_ami: ami-060c08771176b34b4
       TF_VAR_instance_type: t3.micro
-      TF_VAR_key_name: daijomiho
-      TF_VAR_my_home_ip: 153.190.156.4/32
+      TF_VAR_key_name: ${{ secrets.TF_KEY_NAME }}
+      TF_VAR_my_home_ip: ${{ secrets.TF_MY_HOME_IP }}
       TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
       TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
       TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
+
+      # Spring Boot プロジェクトがある場所（違うならここだけ変える）
+      SPRING_APP_DIR: app
+
     steps:
       - uses: actions/checkout@v4
 
@@ -137,3 +135,154 @@ jobs:
 
       - name: terraform apply
         run: terraform apply -input=false tfplan
+
+      # ---- ここから「EC2確認 + Spring Boot配備」 ----
+
+      - name: Read outputs (EC2 ip/sg)
+        run: |
+          set -euo pipefail
+          echo "EC2_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
+          echo "EC2_SG=$(terraform output -raw ec2_sg_id)" >> $GITHUB_ENV
+
+      - name: Allow SSH from runner (temporary)
+        run: |
+          set -euo pipefail
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)/32
+          echo "RUNNER_IP=$RUNNER_IP" >> $GITHUB_ENV
+
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$EC2_SG" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$RUNNER_IP,Description=gha-temp}]" \
+          || true
+
+      - name: Write SSH key
+        run: |
+          set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/key.pem"
+          printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > "$KEY_PATH"
+          chmod 400 "$KEY_PATH"
+          echo "KEY_PATH=$KEY_PATH" >> $GITHUB_ENV
+
+      - name: Wait for SSH
+        run: |
+          set -euo pipefail
+          for i in {1..30}; do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$KEY_PATH" ec2-user@"$EC2_IP" "echo ok" >/dev/null 2>&1; then
+              echo "SSH is ready"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "SSH not ready"
+          exit 1
+
+      - name: Verify Ansible/Java (cloud-init)
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" '
+            set -euxo pipefail
+            ansible --version || true
+            java -version || true
+            sudo tail -n 150 /var/log/cloud-init-output.log || true
+          '
+
+      - name: Setup Java for build
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+
+      - name: Build Spring Boot jar
+        working-directory: ${{ env.SPRING_APP_DIR }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew clean bootJar
+          JAR=$(ls build/libs/*.jar | grep -v plain | head -n 1)
+          echo "JAR=$PWD/$JAR" >> $GITHUB_ENV
+
+      - name: Copy jar to EC2
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" "$JAR" ec2-user@"$EC2_IP":/home/ec2-user/app.jar
+
+      - name: Deploy & start Spring Boot via Ansible (inventory+playbook on EC2)
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" '
+            set -euxo pipefail
+
+            sudo dnf -y update
+            sudo dnf -y install ansible java-21-amazon-corretto-devel
+
+            # inventory（EC2内でローカル実行用）
+            cat > /home/ec2-user/inventory.ini <<'"'"'EOF'"'"'
+            [local]
+            localhost ansible_connection=local
+            EOF
+
+            # playbook（EC2内で localhost に適用）
+            cat > /home/ec2-user/deploy.yml <<'"'"'YAML'"'"'
+            - hosts: local
+              become: true
+              tasks:
+                - name: Create app dir
+                  ansible.builtin.file:
+                    path: /opt/app
+                    state: directory
+                    mode: "0755"
+
+                - name: Move jar into place
+                  ansible.builtin.command: mv /home/ec2-user/app.jar /opt/app/app.jar
+                  args:
+                    creates: /opt/app/app.jar
+
+                - name: Ensure ownership
+                  ansible.builtin.file:
+                    path: /opt/app
+                    state: directory
+                    owner: ec2-user
+                    group: ec2-user
+                    recurse: true
+
+                - name: Create systemd unit
+                  ansible.builtin.copy:
+                    dest: /etc/systemd/system/springboot.service
+                    mode: "0644"
+                    content: |
+                      [Unit]
+                      Description=Spring Boot App
+                      After=network.target
+
+                      [Service]
+                      Type=simple
+                      User=ec2-user
+                      WorkingDirectory=/opt/app
+                      ExecStart=/usr/bin/java -jar /opt/app/app.jar
+                      Restart=always
+                      RestartSec=5
+
+                      [Install]
+                      WantedBy=multi-user.target
+
+                - name: Enable and start service
+                  ansible.builtin.systemd:
+                    name: springboot
+                    enabled: true
+                    state: restarted
+                    daemon_reload: true
+            YAML
+
+            chown ec2-user:ec2-user /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
+
+            sudo -u ec2-user ansible-playbook -i /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
+
+            sudo systemctl status springboot --no-pager -l
+          '
+
+      - name: Revoke SSH from runner (cleanup)
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "$EC2_SG" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$RUNNER_IP}]" \
+          || true

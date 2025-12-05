@@ -9,15 +9,6 @@ variable "name" {
   }
 }
 
-variable "ami" {
-  type        = string
-  description = "AMI ID to use for the instance"
-  validation {
-    condition     = can(regex("^ami-[0-9a-fA-F]{8,}$", var.ami))
-    error_message = "ami must look like ami-xxxxxxxx (hex)."
-  }
-}
-
 variable "instance_type" {
   type        = string
   description = "EC2 instance type"
@@ -52,4 +43,16 @@ variable "key_name" {
     condition     = length(trimspace(var.key_name)) > 0
     error_message = "key_name must be non-empty."
   }
+}
+
+variable "user_data" {
+  type        = string
+  description = "User data script to run at instance boot"
+  default     = null
+}
+
+variable "ami" {
+  type        = string
+  description = "AMI ID to use for the instance (optional if using SSM inside the module)"
+  default     = null
 }
