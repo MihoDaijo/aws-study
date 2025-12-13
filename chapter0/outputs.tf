@@ -22,3 +22,18 @@ output "waf_web_acl_arn" {
   description = "WAF WebACL の ARN（enable_waf=false のときは null）"
   value       = try(module.waf[0].web_acl_arn, null)
 }
+
+output "ec2_sg_id" {
+  description = "EC2 security group ID"
+  value       = module.security_group.ec2_sg_id
+}
+
+output "alb_sg_id" {
+  description = "ALB security group ID"
+  value       = module.security_group.alb_sg_id
+}
+
+output "rds_sg_id" {
+  description = "RDS security group ID"
+  value       = module.security_group.rds_sg_id
+}
