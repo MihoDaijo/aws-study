@@ -106,8 +106,9 @@ ansible-playbook -i /home/ec2-user/inventory.ini /home/ec2-user/java.yml
 EOF
 }
 
-# RDS
+# RDS（必要な時だけ）
 module "rds" {
+  count                  = var.enable_rds ? 1 : 0
   source                 = "./modules/rds"
   db_identifier          = "aws-study-rds2"
   db_name                = "awsstudy"
@@ -123,8 +124,9 @@ module "rds" {
   name_prefix            = var.name_prefix
 }
 
-# ALB
+# ALB（必要な時だけ）
 module "alb" {
+  count             = var.enable_alb ? 1 : 0
   source            = "./modules/alb"
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.subnet.public_subnet_ids
@@ -133,18 +135,20 @@ module "alb" {
   instance_id       = module.ec2.instance_id
 }
 
-# WAF
+# WAF（ALBがある時だけ）
 module "waf" {
+  count        = (var.enable_waf && var.enable_alb) ? 1 : 0
   source       = "./modules/waf"
   name         = "${var.name_prefix}-WAF"
-  resource_arn = module.alb.alb_arn
+  resource_arn = module.alb[0].alb_arn
 }
 
-# CloudWatch
+# CloudWatch（必要な時だけ）
 module "cloudwatch" {
+  count              = var.enable_cloudwatch ? 1 : 0
   source             = "./modules/cloudwatch"
   ec2_instance_id    = module.ec2.instance_id
   name_prefix        = var.name_prefix
-  notification_email = var.notification_email # ← 追加！
+  notification_email = var.notification_email
   cpu_threshold      = 0.03
 }

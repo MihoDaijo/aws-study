@@ -39,3 +39,28 @@ variable "notification_email" {
   description = "SNS 通知を送信するメールアドレス"
   type        = string
 }
+
+variable "enable_alb" {
+  type    = bool
+  default = false
+}
+
+variable "enable_rds" {
+  type    = bool
+  default = false
+}
+
+variable "enable_waf" {
+  type    = bool
+  default = false
+}
+
+variable "enable_cloudwatch" {
+  type    = bool
+  default = false
+}
+
+variable "enable_iam_github_oidc" {
+  type    = bool
+  default = false
+}
