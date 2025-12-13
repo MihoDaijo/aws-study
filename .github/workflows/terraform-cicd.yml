@@ -77,6 +77,13 @@ jobs:
 
           terraform show -no-color tfplan > plan.txt
 
+      - name: Debug conditions (after plan)
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "steps.tfplan.outputs.no_changes=${{ steps.tfplan.outputs.no_changes }}"
+          echo "needs.plan.outputs.no_changes=${{ needs.plan.outputs.no_changes }}"
+
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -90,7 +97,7 @@ jobs:
   apply:
     name: Apply + Deploy (main only)
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.no_changes == 'false'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     defaults:
