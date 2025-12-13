@@ -126,13 +126,13 @@ module "rds" {
 
 # ALB（必要な時だけ）
 module "alb" {
-  count            = var.enable_alb ? 1 : 0
-  source           = "./modules/alb"
-  vpc_id           = module.vpc.vpc_id
+  count             = var.enable_alb ? 1 : 0
+  source            = "./modules/alb"
+  vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.subnet.public_subnet_ids
-  alb_sg_id        = module.security_group.alb_sg_id
-  name_prefix      = var.name_prefix
-  instance_id      = module.ec2.instance_id
+  alb_sg_id         = module.security_group.alb_sg_id
+  name_prefix       = var.name_prefix
+  instance_id       = module.ec2.instance_id
 }
 
 # WAF（ALBがある時だけ）
