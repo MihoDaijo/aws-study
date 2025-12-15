@@ -166,7 +166,10 @@ jobs:
         run: |
           set -euo pipefail
           KEY_PATH="$RUNNER_TEMP/key.pem"
-          printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > "$KEY_PATH"
+
+          # base64 で保存している秘密鍵を復号してファイルに書き出す
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY_B64 }}" | base64 -d > "$KEY_PATH"
+
           chmod 400 "$KEY_PATH"
           echo "KEY_PATH=$KEY_PATH" >> $GITHUB_ENV
 
