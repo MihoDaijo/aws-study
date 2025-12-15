@@ -174,13 +174,15 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..30}; do
-            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$KEY_PATH" ec2-user@"$EC2_IP" "echo ok" >/dev/null 2>&1; then
+            echo "[$i/30] Trying SSH to $EC2_IP ..."
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$KEY_PATH" ec2-user@"$EC2_IP" "echo ok"; then
               echo "SSH is ready"
               exit 0
             fi
+            echo "SSH not ready yet, retrying in 10s..."
             sleep 10
           done
-          echo "SSH not ready"
+          echo "SSH not ready after 30 attempts"
           exit 1
 
       - name: Verify Ansible/Java (cloud-init)
