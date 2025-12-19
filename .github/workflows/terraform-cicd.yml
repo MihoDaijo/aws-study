@@ -226,8 +226,14 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" '
             set -euxo pipefail
 
-            sudo dnf -y update
-            sudo dnf -y install ansible java-21-amazon-corretto-devel
+            # ---- Ansible / Java が入ってなければインストール（入ってたら何もしない） ----
+            if ! command -v ansible >/dev/null 2>&1; then
+              sudo dnf -y install ansible || true
+            fi
+
+            if ! command -v java >/dev/null 2>&1; then
+              sudo dnf -y install java-21-amazon-corretto-devel || true
+            fi
 
             # inventory（EC2内でローカル実行用）
             cat > /home/ec2-user/inventory.ini <<'"'"'EOF'"'"'
