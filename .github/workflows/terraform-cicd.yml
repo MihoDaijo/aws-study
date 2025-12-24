@@ -87,7 +87,6 @@ jobs:
           echo "event=${{ github.event_name }}"
           echo "ref=${{ github.ref }}"
           echo "steps.tfplan.outputs.no_changes=${{ steps.tfplan.outputs.no_changes }}"
-          echo "needs.plan.outputs.no_changes=${{ needs.plan.outputs.no_changes }}"
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -226,13 +225,17 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" '
             set -euxo pipefail
 
-            # Ansible / Java がなければ入れる
+            # --- Ansible がなければ入れる ---
             if ! command -v ansible >/dev/null 2>&1; then
               sudo dnf -y install ansible
             fi
 
-            if ! command -v java >/dev/null 2>&1; then
+            # --- Corretto 21 がまだ入っていないときだけインストール ---
+            if ! rpm -q java-21-amazon-corretto-devel >/dev/null 2>&1; then
+              echo "java-21-amazon-corretto-devel not installed, installing..."
               sudo dnf -y install java-21-amazon-corretto-devel
+            else
+              echo "java-21-amazon-corretto-devel already installed, skip dnf"
             fi
 
             # inventory（EC2 内で localhost 用）
@@ -273,7 +276,7 @@ jobs:
 
                 # --- 初回起動時の一時パスワードを拾って root パスワード変更 ---
                 - name: Get temporary root password (may be empty on rerun)
-                  ansible.builtin.shell: "grep 'temporary password' /var/log/mysqld.log | tail -1 | awk ''{print \\$NF}'' || true"
+                  ansible.builtin.shell: "grep ''temporary password'' /var/log/mysqld.log | tail -1 | awk ''{print \\$NF}'' || true"
                   register: mysql_temp_password
                   changed_when: false
 
@@ -292,11 +295,11 @@ jobs:
                     mysql -u root -p"{{ mysql_root_pass }}" <<SQL
                     CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
 
-                    CREATE USER IF NOT EXISTS '{{ db_user }}'@'localhost' IDENTIFIED BY '{{ db_pass }}';
-                    CREATE USER IF NOT EXISTS '{{ db_user }}'@'%' IDENTIFIED BY '{{ db_pass }}';
+                    CREATE USER IF NOT EXISTS ''{{ db_user }}''@''localhost'' IDENTIFIED BY ''{{ db_pass }}'';
+                    CREATE USER IF NOT EXISTS ''{{ db_user }}''@''%'' IDENTIFIED BY ''{{ db_pass }}'';
 
-                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'localhost';
-                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'%';
+                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO ''{{ db_user }}''@''localhost'';
+                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO ''{{ db_user }}''@''%'';
                     FLUSH PRIVILEGES;
                     SQL
                   args:
@@ -311,7 +314,7 @@ jobs:
                       name VARCHAR(100)
                     );
 
-                    INSERT INTO student (id, name) VALUES (1, 'Kouji Enami')
+                    INSERT INTO student (id, name) VALUES (1, ''Kouji Enami'')
                       ON DUPLICATE KEY UPDATE name = VALUES(name);
                     SQL
                   args:
