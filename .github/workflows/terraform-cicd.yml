@@ -147,7 +147,7 @@ jobs:
       - name: terraform apply
         run: terraform apply -input=false tfplan
 
-      # ---- ここから「EC2確認 + Spring Boot配備」 ----
+      # ---- 「EC2確認 + Spring Boot配備」 ----
 
       - name: Read outputs (EC2 ip/sg)
         run: |
