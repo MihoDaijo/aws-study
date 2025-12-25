@@ -390,7 +390,7 @@ jobs:
 
           # 最終確認（ログだけ表示）
           sudo systemctl status springboot --no-pager -l || true
-REMOTE
+          REMOTE
 
       - name: Revoke SSH from runner (cleanup)
         if: always()
