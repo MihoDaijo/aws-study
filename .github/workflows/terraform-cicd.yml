@@ -222,174 +222,175 @@ jobs:
       - name: Deploy & start Spring Boot via Ansible (DB + app + systemd)
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" '
-            set -euxo pipefail
 
-            # --- Ansible がなければ入れる ---
-            if ! command -v ansible >/dev/null 2>&1; then
-              sudo dnf -y install ansible
-            fi
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$KEY_PATH" ec2-user@"$EC2_IP" 'bash -s' <<'REMOTE'
+          set -euxo pipefail
 
-            # --- Corretto 21 がまだ入っていないときだけインストール ---
-            if ! rpm -q java-21-amazon-corretto-devel >/dev/null 2>&1; then
-              echo "java-21-amazon-corretto-devel not installed, installing..."
-              sudo dnf -y install java-21-amazon-corretto-devel
-            else
-              echo "java-21-amazon-corretto-devel already installed, skip dnf"
-            fi
+          # --- Ansible がなければ入れる ---
+          if ! command -v ansible >/dev/null 2>&1; then
+            sudo dnf -y install ansible
+          fi
 
-            # inventory（EC2 内で localhost 用）
-            cat > /home/ec2-user/inventory.ini <<'"'"'EOF'"'"'
-            [local]
-            localhost ansible_connection=local
-            EOF
+          # --- Corretto 21 がまだ入っていないときだけインストール ---
+          if ! rpm -q java-21-amazon-corretto-devel >/dev/null 2>&1; then
+            echo "java-21-amazon-corretto-devel not installed, installing..."
+            sudo dnf -y install java-21-amazon-corretto-devel
+          else
+            echo "java-21-amazon-corretto-devel already installed, skip dnf"
+          fi
 
-            # DB + app + systemd まで全部やる playbook
-            cat > /home/ec2-user/deploy.yml <<'"'"'YAML'"'"'
-            - hosts: local
-              become: true
-              vars:
-                db_name: awsstudy
-                db_user: admin
-                db_pass: "Admin12345!"
-                mysql_root_pass: "RootPass123!"
+          # inventory（EC2 内で localhost 用）
+          cat >/home/ec2-user/inventory.ini <<'EOF'
+          [local]
+          localhost ansible_connection=local
+          EOF
 
-              tasks:
-                # --- MySQL インストール＆起動 ---
+          # DB + app + systemd まで全部やる playbook
+          cat >/home/ec2-user/deploy.yml <<'YAML'
+          - hosts: local
+            become: true
+            vars:
+              db_name: awsstudy
+              db_user: admin
+              db_pass: "Admin12345!"
+              mysql_root_pass: "RootPass123!"
 
-                - name: Install MySQL repo (if not exists)
-                  ansible.builtin.command: >
-                    dnf -y install https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
-                  args:
-                    creates: /etc/yum.repos.d/mysql-community.repo
+            tasks:
+              # --- MySQL インストール＆起動 ---
 
-                - name: Install MySQL server
-                  ansible.builtin.dnf:
-                    name: mysql-community-server
-                    state: present
+              - name: Install MySQL repo (if not exists)
+                ansible.builtin.command: >
+                  dnf -y install https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
+                args:
+                  creates: /etc/yum.repos.d/mysql-community.repo
 
-                - name: Enable and start mysqld
-                  ansible.builtin.service:
-                    name: mysqld
-                    state: started
-                    enabled: true
+              - name: Install MySQL server
+                ansible.builtin.dnf:
+                  name: mysql-community-server
+                  state: present
 
-                # --- 初回起動時の一時パスワードを拾って root パスワード変更 ---
-                - name: Get temporary root password (may be empty on rerun)
-                  ansible.builtin.shell: "grep ''temporary password'' /var/log/mysqld.log | tail -1 | awk ''{print \\$NF}'' || true"
-                  register: mysql_temp_password
-                  changed_when: false
+              - name: Enable and start mysqld
+                ansible.builtin.service:
+                  name: mysqld
+                  state: started
+                  enabled: true
 
-                - name: Set root password using temporary password (ignore if already done)
-                  ansible.builtin.shell: |
-                    mysql --connect-expired-password -u root -p"${mysql_temp_password.stdout}" \
-                      -e "ALTER USER ''root''@''localhost'' IDENTIFIED BY ''${mysql_root_pass}'';"
-                  args:
-                    executable: /bin/bash
-                  when: mysql_temp_password.stdout != ""
-                  failed_when: false
+              # --- 初回起動時の一時パスワードを拾って root パスワード変更 ---
+              - name: Get temporary root password (may be empty on rerun)
+                ansible.builtin.shell: "grep 'temporary password' /var/log/mysqld.log | tail -1 | awk '{print \\$NF}' || true"
+                register: mysql_temp_password
+                changed_when: false
 
-                # --- DB と admin ユーザー作成 ---
-                - name: Create database and admin user
-                  ansible.builtin.shell: |
-                    mysql -u root -p"{{ mysql_root_pass }}" <<SQL
-                    CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
+              - name: Set root password using temporary password (ignore if already done)
+                ansible.builtin.shell: |
+                  mysql --connect-expired-password -u root -p"${mysql_temp_password.stdout}" \
+                    -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${mysql_root_pass}';"
+                args:
+                  executable: /bin/bash
+                when: mysql_temp_password.stdout != ""
+                failed_when: false
 
-                    CREATE USER IF NOT EXISTS ''{{ db_user }}''@''localhost'' IDENTIFIED BY ''{{ db_pass }}'';
-                    CREATE USER IF NOT EXISTS ''{{ db_user }}''@''%'' IDENTIFIED BY ''{{ db_pass }}'';
+              # --- DB と admin ユーザー作成 ---
+              - name: Create database and admin user
+                ansible.builtin.shell: |
+                  mysql -u root -p"{{ mysql_root_pass }}" <<SQL
+                  CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
 
-                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO ''{{ db_user }}''@''localhost'';
-                    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO ''{{ db_user }}''@''%'';
-                    FLUSH PRIVILEGES;
-                    SQL
-                  args:
-                    executable: /bin/bash
+                  CREATE USER IF NOT EXISTS '{{ db_user }}'@'localhost' IDENTIFIED BY '{{ db_pass }}';
+                  CREATE USER IF NOT EXISTS '{{ db_user }}'@'%' IDENTIFIED BY '{{ db_pass }}';
 
-                # --- テーブル作成 & サンプルデータ ---
-                - name: Create student table and seed data
-                  ansible.builtin.shell: |
-                    mysql -u {{ db_user }} -p"{{ db_pass }}" {{ db_name }} <<SQL
-                    CREATE TABLE IF NOT EXISTS student (
-                      id   INT PRIMARY KEY,
-                      name VARCHAR(100)
-                    );
+                  GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'localhost';
+                  GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'%';
+                  FLUSH PRIVILEGES;
+                  SQL
+                args:
+                  executable: /bin/bash
 
-                    INSERT INTO student (id, name) VALUES (1, ''Kouji Enami'')
-                      ON DUPLICATE KEY UPDATE name = VALUES(name);
-                    SQL
-                  args:
-                    executable: /bin/bash
+              # --- テーブル作成 & サンプルデータ ---
+              - name: Create student table and seed data
+                ansible.builtin.shell: |
+                  mysql -u {{ db_user }} -p"{{ db_pass }}" {{ db_name }} <<SQL
+                  CREATE TABLE IF NOT EXISTS student (
+                    id   INT PRIMARY KEY,
+                    name VARCHAR(100)
+                  );
 
-                # --- アプリ配置 ---
-                - name: Create app dir
-                  ansible.builtin.file:
-                    path: /opt/app
-                    state: directory
-                    mode: "0755"
+                  INSERT INTO student (id, name) VALUES (1, 'Kouji Enami')
+                    ON DUPLICATE KEY UPDATE name = VALUES(name);
+                  SQL
+                args:
+                  executable: /bin/bash
 
-                - name: Move jar into place
-                  ansible.builtin.command: mv /home/ec2-user/app.jar /opt/app/app.jar
-                  args:
-                    creates: /opt/app/app.jar
+              # --- アプリ配置 ---
+              - name: Create app dir
+                ansible.builtin.file:
+                  path: /opt/app
+                  state: directory
+                  mode: "0755"
 
-                - name: Ensure ownership
-                  ansible.builtin.file:
-                    path: /opt/app
-                    state: directory
-                    owner: ec2-user
-                    group: ec2-user
-                    recurse: true
+              - name: Move jar into place
+                ansible.builtin.command: mv /home/ec2-user/app.jar /opt/app/app.jar
+                args:
+                  creates: /opt/app/app.jar
 
-                # --- application.properties を配置 ---
-                - name: Write application.properties
-                  ansible.builtin.copy:
-                    dest: /opt/app/application.properties
-                    mode: "0644"
-                    content: |
-                      spring.datasource.url=jdbc:mysql://localhost:3306/{{ db_name }}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
-                      spring.datasource.username={{ db_user }}
-                      spring.datasource.password={{ db_pass }}
-                      spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+              - name: Ensure ownership
+                ansible.builtin.file:
+                  path: /opt/app
+                  state: directory
+                  owner: ec2-user
+                  group: ec2-user
+                  recurse: true
 
-                      mybatis.configuration.map-underscore-to-camel-case=true
+              # --- application.properties を配置 ---
+              - name: Write application.properties
+                ansible.builtin.copy:
+                  dest: /opt/app/application.properties
+                  mode: "0644"
+                  content: |
+                    spring.datasource.url=jdbc:mysql://localhost:3306/{{ db_name }}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
+                    spring.datasource.username={{ db_user }}
+                    spring.datasource.password={{ db_pass }}
+                    spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
-                # --- systemd ユニットを配置＆起動 ---
-                - name: Create systemd unit for Spring Boot
-                  ansible.builtin.copy:
-                    dest: /etc/systemd/system/springboot.service
-                    mode: "0644"
-                    content: |
-                      [Unit]
-                      Description=Spring Boot App
-                      After=network.target
+                    mybatis.configuration.map-underscore-to-camel-case=true
 
-                      [Service]
-                      Type=simple
-                      User=ec2-user
-                      WorkingDirectory=/opt/app
-                      ExecStart=/usr/bin/java -jar /opt/app/app.jar
-                      Restart=always
-                      RestartSec=5
+              # --- systemd ユニットを配置＆起動 ---
+              - name: Create systemd unit for Spring Boot
+                ansible.builtin.copy:
+                  dest: /etc/systemd/system/springboot.service
+                  mode: "0644"
+                  content: |
+                    [Unit]
+                    Description=Spring Boot App
+                    After=network.target
 
-                      [Install]
-                      WantedBy=multi-user.target
+                    [Service]
+                    Type=simple
+                    User=ec2-user
+                    WorkingDirectory=/opt/app
+                    ExecStart=/usr/bin/java -jar /opt/app/app.jar
+                    Restart=always
+                    RestartSec=5
 
-                - name: Enable and start springboot service
-                  ansible.builtin.systemd:
-                    name: springboot
-                    enabled: true
-                    state: restarted
-                    daemon_reload: true
-            YAML
+                    [Install]
+                    WantedBy=multi-user.target
 
-            chown ec2-user:ec2-user /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
+              - name: Enable and start springboot service
+                ansible.builtin.systemd:
+                  name: springboot
+                  enabled: true
+                  state: restarted
+                  daemon_reload: true
+          YAML
 
-            # Playbook 実行
-            sudo -u ec2-user ansible-playbook -i /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
+          chown ec2-user:ec2-user /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
 
-            # 最終確認（ログだけ表示）
-            sudo systemctl status springboot --no-pager -l || true
-          '
+          # Playbook 実行
+          sudo -u ec2-user ansible-playbook -i /home/ec2-user/inventory.ini /home/ec2-user/deploy.yml
+
+          # 最終確認（ログだけ表示）
+          sudo systemctl status springboot --no-pager -l || true
+          REMOTE
 
       - name: Revoke SSH from runner (cleanup)
         if: always()
