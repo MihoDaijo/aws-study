@@ -234,7 +234,9 @@ jobs:
           # --- Corretto 21 がまだ入っていないときだけインストール ---
           if ! rpm -q java-21-amazon-corretto-devel >/dev/null 2>&1; then
             echo "java-21-amazon-corretto-devel not installed, installing..."
-            sudo dnf -y install java-21-amazon-corretto-devel
+            sudo dnf -y install java-21-amazon-corretto-devel || {
+              echo "WARN: dnf install java-21-amazon-corretto-devel failed (maybe already installed). Continue."
+            }
           else
             echo "java-21-amazon-corretto-devel already installed, skip dnf"
           fi
