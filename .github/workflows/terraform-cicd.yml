@@ -288,8 +288,8 @@ jobs:
                 register: mysql_temp_password
                 changed_when: false
 
-              # --- 一時パスワードで root パス変更 + DB + adminユーザー作成を一気にやる ---
-              - name: Init MySQL (set root password, create db & admin user)
+              # --- 初回セットアップ（temp パスワードから root パスを設定） ---
+              - name: Init MySQL first time (set root password / create db & user)
                 ansible.builtin.shell: |
                   mysql --connect-expired-password -u root -p"{{ mysql_temp_password.stdout }}" <<SQL
                   ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_root_pass }}';
@@ -306,7 +306,27 @@ jobs:
                 args:
                   executable: /bin/bash
                 when: mysql_temp_password.stdout != ""
-                failed_when: false
+
+              # --- 再実行時用（root はすでに mysql_root_pass 済みと仮定して DB/user を同期） ---
+              - name: Ensure DB & user exist and password is updated
+                ansible.builtin.shell: |
+                  mysql -u root -p"{{ mysql_root_pass }}" <<SQL
+                  CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
+
+                  CREATE USER IF NOT EXISTS '{{ db_user }}'@'localhost' IDENTIFIED BY '{{ db_pass }}';
+                  CREATE USER IF NOT EXISTS '{{ db_user }}'@'%' IDENTIFIED BY '{{ db_pass }}';
+
+                  -- 毎回パスワードを同期する
+                  ALTER USER '{{ db_user }}'@'localhost' IDENTIFIED BY '{{ db_pass }}';
+                  ALTER USER '{{ db_user }}'@'%' IDENTIFIED BY '{{ db_pass }}';
+
+                  GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'localhost';
+                  GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'%';
+                  FLUSH PRIVILEGES;
+                  SQL
+                args:
+                  executable: /bin/bash
+                when: mysql_temp_password.stdout == ""
 
               # --- テーブル作成 & サンプルデータ ---
               - name: Create student table and seed data
