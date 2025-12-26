@@ -376,7 +376,7 @@ jobs:
 
                     mybatis.configuration.map-underscore-to-camel-case=true
 
-              # --- systemd ユニットを配置＆起動 ---
+              # --- systemd ユニットを配置起動 ---
               - name: Create systemd unit for Spring Boot
                 ansible.builtin.copy:
                   dest: /etc/systemd/system/springboot.service
