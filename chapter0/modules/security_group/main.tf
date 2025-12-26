@@ -34,7 +34,7 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = [var.my_home_ip]
   }
 
-# 👇 これを追加：自宅IPから 8080 直アクセス
+  # 👇 これを追加：自宅IPから 8080 直アクセス
   ingress {
     from_port   = 8080
     to_port     = 8080
