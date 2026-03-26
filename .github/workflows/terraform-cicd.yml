@@ -254,8 +254,19 @@ jobs:
                 db_pass: "Admin12345!"
                 mysql_root_pass: "RootPass123!"
 
+<<<<<<< HEAD
               tasks:
                 # --- MySQL インストール＆起動 ---
+=======
+          # DB + app + systemd まで全部やる playbook
+          cat >/home/ec2-user/deploy.yml <<'YAML'
+          - hosts: local
+            become: true
+            vars:
+              db_name: awsstudy
+              db_user: admin
+              db_pass: "Admin12345!"
+>>>>>>> parent of ad5af19 (Merge pull request #48 from MihoDaijo/test12)
 
                 - name: Install MySQL repo (if not exists)
                   ansible.builtin.command: >
@@ -274,6 +285,7 @@ jobs:
                     state: started
                     enabled: true
 
+<<<<<<< HEAD
                 # --- 初回起動時の一時パスワードを拾って root パスワード変更 ---
                 - name: Get temporary root password (may be empty on rerun)
                   ansible.builtin.shell: "grep ''temporary password'' /var/log/mysqld.log | tail -1 | awk ''{print \\$NF}'' || true"
@@ -294,6 +306,13 @@ jobs:
                   ansible.builtin.shell: |
                     mysql -u root -p"{{ mysql_root_pass }}" <<SQL
                     CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
+=======
+              # --- DB と admin ユーザー作成（root パスワードは使わずソケットで接続） ---
+              - name: Create database and admin user
+                ansible.builtin.shell: |
+                  mysql <<SQL
+                  CREATE DATABASE IF NOT EXISTS {{ db_name }} DEFAULT CHARACTER SET utf8mb4;
+>>>>>>> parent of ad5af19 (Merge pull request #48 from MihoDaijo/test12)
 
                     CREATE USER IF NOT EXISTS ''{{ db_user }}''@''localhost'' IDENTIFIED BY ''{{ db_pass }}'';
                     CREATE USER IF NOT EXISTS ''{{ db_user }}''@''%'' IDENTIFIED BY ''{{ db_pass }}'';
