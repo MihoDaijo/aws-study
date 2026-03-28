@@ -45,6 +45,32 @@ RaiseTechの課題を通じて、AWSの手動構築、CloudFormation、Terraform
 
 ---
 
+## Terraform モジュール構成
+
+Terraformでは、`chapter0` ディレクトリ配下でAWSインフラをモジュール構成で管理しています。  
+VPC、サブネット、インターネットゲートウェイ、ルートテーブル、セキュリティグループ、EC2、RDS、ALB、WAF、CloudWatch などを役割ごとに分割し、見通しのよい構成を意識しました。
+
+```text
+chapter0/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars
+├── modules/
+│   ├── vpc/
+│   ├── subnet/
+│   ├── igw/
+│   ├── route/
+│   ├── security_group/
+│   ├── ec2/
+│   ├── rds/
+│   ├── alb/
+│   ├── waf/
+│   └── cloudwatch/
+```
+
+---
+
 ## このリポジトリで取り組んだこと
 
 - AWSの基本サービス（EC2、RDS、S3、ALB、VPC）の構築
