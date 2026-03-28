@@ -1,4 +1,4 @@
-# GitHub　RaiseTech課題提出目次（2025年4月〜2026年3月）
+# GitHub　RaiseTech課題学習記録と振り返り（2025年4月〜2026年3月）
 
 # aws-study
 
