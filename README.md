@@ -41,9 +41,7 @@ RaiseTechの課題を通じて、AWSの手動構築、CloudFormation、Terraform
 
 手動構築、CloudFormation、Terraformで作成したAWS構成です。
 
-<p align="center">
-  <img src="./images/aws-study-architecture.png" alt="AWS構成図" width="800">
-</p>
+![AWS構成図](./aws-study2-1.svg)
 
 ---
 
