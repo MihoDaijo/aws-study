@@ -6,6 +6,16 @@ AWSサービスの作成履歴として、手動構築・CloudFormation・Terraf
 EC2、RDS、S3、ALB、VPC などを対象に、インフラ構築、CI/CD、自動化まで段階的に取り組みました。  
 RaiseTech課題を通じて学んだ内容と成果物を記録しています。
 
+## 使用技術
+
+<p>
+  <img src="https://img.shields.io/badge/AWS-232F3E.svg?logo=amazonaws&style=for-the-badge&logoColor=white" alt="AWS">
+  <img src="https://img.shields.io/badge/CloudFormation-232F3E.svg?logo=amazonaws&style=for-the-badge&logoColor=white" alt="CloudFormation">
+  <img src="https://img.shields.io/badge/Terraform-7B42BC.svg?logo=terraform&style=for-the-badge&logoColor=white" alt="Terraform">
+  <img src="https://img.shields.io/badge/GitHub_Actions-2088FF.svg?logo=githubactions&style=for-the-badge&logoColor=white" alt="GitHub Actions">
+  <img src="https://img.shields.io/badge/Ansible-EE0000.svg?logo=ansible&style=for-the-badge&logoColor=white" alt="Ansible">
+</p>
+
 ### ・23_インフラ構成図の書き方の課題提出 https://github.com/MihoDaijo/aws-study/pull/3
 
 ### ・25_CloudFormation解説の課題提出 https://github.com/MihoDaijo/aws-study/pull/4
